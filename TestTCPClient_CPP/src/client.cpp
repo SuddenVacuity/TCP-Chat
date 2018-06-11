@@ -1,14 +1,22 @@
+//
+// client.cpp
+// ~~~~~~~~~~
+//
+// Copyright (c) 2018 Gerald Coggins
+//
+
 #include <iostream>
-#include <boost/array.hpp>
+#include <string>
 #include <asio.hpp>
 
 namespace TestTCPClient_CPP
 {
 	using asio::ip::tcp;
+	const std::string endMessageToken = "\n";
 
-	void printSocketException(std::exception& e, asio::error_code& error)
+	void printSocketException(asio::system_error& e)
 	{
-		std::cout << "ERROR std::exception:" << std::endl;
+		std::cout << "ERROR asio::system_error:" << std::endl;
 		std::cerr << e.what() << std::endl;
 	}
 
@@ -27,20 +35,19 @@ namespace TestTCPClient_CPP
 		asio::error_code errorConnect;
 		try
 		{
-			boost::array<char, 128> buf;
-
 			asio::connect(socket, endpoints, errorConnect);
 
-			size_t len = socket.read_some(asio::buffer(buf), errorConnect);
+			asio::streambuf buf;
+			size_t len = asio::read_until(socket, buf, endMessageToken, errorConnect);
 
 			// print received message
 			std::cout << "Server says: ";
-			std::cout.write(buf.data(), len);
+			std::cout.write((char*)buf.data().data(), len) << std::endl;
 		}
-		catch (std::exception& e)
+		catch (asio::system_error& e)
 		{
 			std::cout << "CONNECT TO SERVER FAILED: " << baseAddress << std::endl;
-			printSocketException(e, errorConnect);
+			printSocketException(e);
 		}
 
 		std::cout << "Type to send a message to the server\n\tType qqq to quit\n\tType qqqs to close client and server\n";
@@ -55,12 +62,12 @@ namespace TestTCPClient_CPP
 			asio::error_code errorOut;
 			try
 			{
-				asio::write(socket, asio::buffer(input), errorOut);
+				asio::write(socket, asio::buffer(input + endMessageToken), errorOut);
 			}
-			catch (std::exception& e)
+			catch (asio::system_error& e)
 			{
 				std::cout << "SEND MESSAGE TO SERVER FAILED: " << baseAddress << std::endl;
-				printSocketException(e, errorOut);
+				printSocketException(e);
 			}
 
 			if (input == "qqq")
@@ -69,13 +76,13 @@ namespace TestTCPClient_CPP
 				break;
 
 			// create buffer to hold sent data
-			boost::array<char, 128> buf;
+			asio::streambuf buf;
 
 			// attempt to read a message from the client
 			asio::error_code errorIn;
 			try
 			{
-				size_t len = socket.read_some(asio::buffer(buf), errorIn);
+				size_t len = asio::read_until(socket, buf, endMessageToken, errorIn);
 
 				// handle failed receive
 				if (errorIn == asio::error::eof)
@@ -85,14 +92,14 @@ namespace TestTCPClient_CPP
 
 				// print received message
 				std::cout << "Server says: ";
-				std::cout.write(buf.data(), len);
+				std::cout.write((char*)buf.data().data(), len);
 				std::cout << std::endl;
 
 			}
-			catch (std::exception& e)
+			catch (asio::system_error& e)
 			{
 				std::cout << "RECEIVE MESSAGE FROM SERVER FAILED: " << baseAddress << std::endl;
-				printSocketException(e, errorIn);
+				printSocketException(e);
 			}
 		} // END while(true)
 	}

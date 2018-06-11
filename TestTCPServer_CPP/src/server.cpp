@@ -2,36 +2,21 @@
 // server.cpp
 // ~~~~~~~~~~
 //
-// Copyright (c) 2003-2015 Christopher M. Kohlhoff (chris at kohlhoff dot com)
-//
-// Distributed under the Boost Software License, Version 1.0. (See accompanying
-// file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
+// Copyright (c) 2018 Gerald Coggins
 //
 
-#ifndef _CRT_SECURE_NO_WARNINGS
-// define this to use depreciated function ctime()
-#define _CRT_SECURE_NO_WARNINGS
-#endif
-
-#include <ctime>
 #include <iostream>
 #include <string>
 #include <asio.hpp>
-#include <boost/array.hpp>
 
 namespace TestTCPServer_CPP
 {
 	using asio::ip::tcp;
+	const std::string endMessageToken = "\n";
 
-	std::string make_daytime_string()
+	void printSocketException(asio::system_error& e)
 	{
-		time_t now = time(0);
-		return ctime(&now);
-	}
-
-	void printSocketException(std::exception& e)
-	{
-		std::cout << "ERROR std::exception:" << std::endl;
+		std::cout << "ERROR asio::system_error:" << std::endl;
 		std::cerr << e.what() << std::endl;
 	}
 
@@ -39,11 +24,14 @@ namespace TestTCPServer_CPP
 	// returns true as long as the the server should continue running
 	bool handleClientMessage(const std::string& message, tcp::socket& socket)
 	{
-		if (message == "qqqs")
+		std::string msg = message;
+		msg.erase((size_t)(msg.length() - endMessageToken.length()));
+
+		if (msg == "qqqs")
 		{
 			return false;
 		}
-		if (message == "qqq")
+		if (msg == "qqq")
 		{
 			std::cout << "Client has disconnected: " << socket.remote_endpoint().address().to_string() << std::endl;
 			socket.shutdown(asio::socket_base::shutdown_type::shutdown_both);
@@ -51,7 +39,7 @@ namespace TestTCPServer_CPP
 		}
 		else
 		{
-			std::cout << "Client says: " << message << std::endl;
+			std::cout << "Client says: " << msg << std::endl;
 			// create message to send
 			std::string messageOut = "message recieved";
 
@@ -60,9 +48,9 @@ namespace TestTCPServer_CPP
 			// attempt to send a message to the client
 			try
 			{
-				asio::write(socket, asio::buffer(messageOut), errorOut);
+				asio::write(socket, asio::buffer(messageOut + endMessageToken), errorOut);
 			}
-			catch (std::exception& e)
+			catch (asio::system_error& e)
 			{
 				std::cout << "SEND MESSAGE TO CLIENT FAILED: " << socket.remote_endpoint().address().to_string() << std::endl;
 				printSocketException(e);
@@ -84,9 +72,9 @@ namespace TestTCPServer_CPP
 		asio::error_code errorOut;
 		try
 		{
-			asio::write(socket, asio::buffer(messageOut), errorOut);
+			asio::write(socket, asio::buffer(messageOut + endMessageToken), errorOut);
 		}
-		catch (std::exception& e)
+		catch (asio::system_error& e)
 		{
 			printSocketException(e);
 		}
@@ -100,7 +88,6 @@ namespace TestTCPServer_CPP
 		tcp::socket socket(io_service); 
 		asio::error_code ec;
 		socket.set_option(asio::socket_base::reuse_address(true), ec);
-
 		acceptNewClient(acceptor, socket);
 
 		while (true)
@@ -111,27 +98,28 @@ namespace TestTCPServer_CPP
 			}
 
 			// read sent message
-			boost::array<char, 128> buf;
+			asio::streambuf buf;
 			asio::error_code errorIn;
 
 			// attempt to read a message from the client
 			try
 			{
-				size_t len = socket.read_some(asio::buffer(buf), errorIn);
+				size_t len = asio::read_until(socket, buf, endMessageToken, errorIn);
 
 				// if message was successfully received
 				// handle the message internally
 				if (!errorIn)
 				{
-					std::string received(buf.begin(), buf.begin() + len);
+					char* ptr = (char*)buf.data().data();
+					std::string received(ptr, ptr + len);
 
 					if (!handleClientMessage(received, socket))
 						break;
 				}
 			}
-			catch (std::exception& e)
+			catch (asio::system_error& e)
 			{
-				std::cout << "RECEIVE MESSAGE FROM CLIENT FAILED: " << socket.remote_endpoint().address().to_string() << std::endl;
+				std::cout << "CONNECTION TO CLIENT FAILED: " << socket.remote_endpoint().address().to_string() << std::endl;
 				printSocketException(e);
 			}
 		}
