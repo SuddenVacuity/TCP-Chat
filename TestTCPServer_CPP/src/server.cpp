@@ -28,12 +28,63 @@ namespace TestTCPServer_CPP
 		std::cerr << e.what() << std::endl;
 	}
 
+	void sendMessage(tcp::socket &socket, const std::string &message, const size_t &packetSize)
+	{
+		// attempt to send a message to the client
+		try
+		{
+			asio::error_code errorOut;
+			asio::write(socket, asio::buffer(message), errorOut);
+
+			// if write fails print message and close socket
+			if (errorOut)
+			{
+				std::cout << "CONNECTION TO CLIENT LOST: " << socket.remote_endpoint().address().to_string() << std::endl;
+				socket.close();
+			}
+		}
+		catch (asio::system_error& e)
+		{
+			std::cout << "SEND MESSAGE TO CLIENT FAILED: " << socket.remote_endpoint().address().to_string() << std::endl;
+			printSocketException(e);
+		}
+	}
+
+	size_t readMessage(tcp::socket &socket, const size_t &packetSize)
+	{
+		size_t len = 0;
+		// attempt to read a message from the client
+		try
+		{
+			// read from client
+			asio::error_code errorIn;
+			len = socket.read_some(asio::buffer(buf, packetSize), errorIn);
+
+			// check for failed receive
+			if (errorIn == asio::error::eof) {} // Connection closed cleanly by peer. 
+			else if (errorIn)
+			{
+				std::cout << "CONNECTION TO CLIENT LOST: " << socket.remote_endpoint().address().to_string() << std::endl;
+				socket.close();
+			}
+		}
+		catch (asio::system_error& e)
+		{
+			std::cout << "CONNECTION TO CLIENT FAILED: " << socket.remote_endpoint().address().to_string() << std::endl;
+			printSocketException(e);
+		}
+
+		return len;
+	}
+
 	// prints the input string to the console
 	// returns true as long as the the server should continue running
 	bool handleClientMessage(const std::string& message, tcp::socket& socket)
 	{
 		if (message == "qqqs")
 		{
+			socket.shutdown(asio::socket_base::shutdown_type::shutdown_both);
+			socket.close();
 			return false;
 		}
 		if (message == "qqq")
@@ -45,29 +96,14 @@ namespace TestTCPServer_CPP
 		else
 		{
 			std::cout << "Client says: " << message << std::endl;
+
 			// create message to send
 			std::string messageOut = "message recieved";
-
-			asio::error_code errorOut;
-
-			// attempt to send a message to the client
-			try
-			{
-				asio::write(socket, asio::buffer(messageOut), errorOut);
-
-				// if write fails print message and close socket
-				if (errorOut)
-				{
-					std::cout << "CONNECTION TO CLIENT LOST: " << socket.remote_endpoint().address().to_string() << std::endl;
-					socket.close();
-				}
-			}
-			catch (asio::system_error& e)
-			{
-				std::cout << "SEND MESSAGE TO CLIENT FAILED: " << socket.remote_endpoint().address().to_string() << std::endl;
-				printSocketException(e);
-			}
+			sendMessage(socket, messageOut, packetSize);
 		}
+
+		// clear the data from the buffer between uses
+		memset(buf, 0, packetSize);
 
 		return true;
 	}
@@ -80,23 +116,7 @@ namespace TestTCPServer_CPP
 		// create message to be sent on connect
 		std::string messageOut = "Welcome";
 
-		// attempt to send a message to the client
-		asio::error_code errorOut;
-		try
-		{
-			asio::write(socket, asio::buffer(messageOut), errorOut);
-
-			// if write fails print message and close socket
-			if (errorOut)
-			{
-				std::cout << "CONNECTION TO CLIENT LOST: " << socket.remote_endpoint().address().to_string() << std::endl;
-				socket.close();
-			}
-		}
-		catch (asio::system_error& e)
-		{
-			printSocketException(e);
-		}
+		sendMessage(socket, messageOut, packetSize);
 	}
 
 	void runServer()
@@ -116,37 +136,16 @@ namespace TestTCPServer_CPP
 			{
 				acceptNewClient(acceptor, socket);
 			}
+			size_t len = readMessage(socket, packetSize);
 
-			// read sent message
-			asio::error_code errorIn;
+			// check if nothing to handle
+			if(len == 0)
+				continue;
 
-			// attempt to read a message from the client
-			try
-			{
-				// read from client
-				size_t len = socket.read_some(asio::buffer(buf, packetSize), errorIn);
-
-				// if read fails print message and close socket
-				if(errorIn)
-				{
-					std::cout << "CONNECTION TO CLIENT LOST: " << socket.remote_endpoint().address().to_string() << std::endl;
-					socket.close();
-					continue;
-				}
-				
-				// handle the sent message interanlly
-				// HACK: returns true as long as the server should keep running
-				if (!handleClientMessage(std::string(buf, len), socket))
-					break;
-
-				// clear the data from the buffer between uses
-				memset(buf, 0, packetSize);
-			}
-			catch (asio::system_error& e)
-			{
-				std::cout << "CONNECTION TO CLIENT FAILED: " << socket.remote_endpoint().address().to_string() << std::endl;
-				printSocketException(e);
-			}
+			// handle the sent message interanlly
+			// HACK: returns true as long as the server should keep running
+			if (!handleClientMessage(std::string(buf, len), socket))
+				break;
 		}
 	} // END runServer()
 }
