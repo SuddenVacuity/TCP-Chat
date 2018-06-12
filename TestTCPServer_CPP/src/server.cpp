@@ -22,12 +22,18 @@ namespace TestTCPServer_CPP
 	const size_t packetSize = 128;
 	char buf[packetSize] = {};
 
+	// prints asio system errors
+	//		[e] - the system error to be printed
 	void printSocketException(asio::system_error& e)
 	{
 		std::cout << "ERROR asio::system_error:" << std::endl;
 		std::cerr << e.what() << std::endl;
 	}
 
+	// attempts to send a message to the client through a socket
+	//		[socket] - the socket the data will be sent through
+	//		[message] - the data to be sent
+	//		[packetSize] - data larger than this will be broken into multiple writes
 	void sendMessage(tcp::socket &socket, const std::string &message, const size_t &packetSize)
 	{
 		// attempt to send a message to the client
@@ -50,6 +56,9 @@ namespace TestTCPServer_CPP
 		}
 	}
 
+	// attempts to read the client's response to a sent message
+	//		[socket] - the socket the data will be received through
+	//		[packetSize] - data larger than this will be broken into multiple reads
 	size_t readMessage(tcp::socket &socket, const size_t &packetSize)
 	{
 		size_t len = 0;
@@ -78,21 +87,31 @@ namespace TestTCPServer_CPP
 	}
 
 	// prints the input string to the console
-	// returns true as long as the the server should continue running
+	// HACK: returns true as long as the the server should continue running
+	//		[message] - the message that was received
+	//		[socket] - the socket connected to the client that the message came through
 	bool handleClientMessage(const std::string& message, tcp::socket& socket)
 	{
+		// the client closed and the server will close too
 		if (message == "qqqs")
 		{
+			// make the socket available for reuse
 			socket.shutdown(asio::socket_base::shutdown_type::shutdown_both);
 			socket.close();
+
+			// HACK: quit the server
 			return false;
 		}
+		// the client was closed and it's socket should be made available
 		if (message == "qqq")
 		{
 			std::cout << "Client has disconnected: " << socket.remote_endpoint().address().to_string() << std::endl;
+
+			// make the socket available for reuse
 			socket.shutdown(asio::socket_base::shutdown_type::shutdown_both);
 			socket.close();
 		}
+		// catch-all block for any other input
 		else
 		{
 			std::cout << "Client says: " << message << std::endl;
@@ -108,6 +127,9 @@ namespace TestTCPServer_CPP
 		return true;
 	}
 
+	// assigns a connecting client to an available socket
+	//		[acceptor] - 
+	//		[socket] - the socket to connect to a client through
 	void acceptNewClient(tcp::acceptor& acceptor, tcp::socket& socket)
 	{
 		acceptor.accept(socket);
@@ -119,6 +141,7 @@ namespace TestTCPServer_CPP
 		sendMessage(socket, messageOut, packetSize);
 	}
 
+	// creates io service, attaches clients to sockets and loops read/handle messages
 	void runServer()
 	{
 		asio::io_service io_service;
@@ -148,8 +171,9 @@ namespace TestTCPServer_CPP
 				break;
 		}
 	} // END runServer()
-}
+} // END namespace TestTCPServer_CPP
 
+// program entry point
 int main()
 {
 	TestTCPServer_CPP::runServer();

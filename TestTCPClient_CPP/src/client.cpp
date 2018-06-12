@@ -20,8 +20,12 @@ namespace TestTCPClient_CPP
 	// any data larger than this will be split into
 	// multiple packages and sent sequencially
 	const size_t packetSize = 128;
+	// persistant buffer used to store incoming messages
 	char buf[packetSize] = {};
 
+	// reads the data from the persistant buffer, handles the contents internally
+	// then clears the buffer afterwards.
+	//		[length] -  the length of the message stored in the persistant buffer
 	void handleMessage(size_t length)
 	{
 		std::cout << "Server says: ";
@@ -30,21 +34,24 @@ namespace TestTCPClient_CPP
 		memset(buf, 0, length);
 	}
 
+	// prints asio system errors
+	//		[e] - the system error to be printed
 	void printSocketException(asio::system_error& e)
 	{
 		std::cout << "ERROR asio::system_error:" << std::endl;
 		std::cerr << e.what() << std::endl;
 	}
 
+	// attempts to connect to the server through a socket
+	//		[socket] - the socket to be used
+	//		[endpoints] - the address to connect to
 	void connect(tcp::socket &socket, 
 		tcp::resolver::results_type endpoints)
 	{
-		// attempt to connect to the server
 		try
 		{
 			asio::error_code errorConnect;
 			asio::connect(socket, endpoints, errorConnect);
-
 		}
 		catch (asio::system_error& e)
 		{
@@ -53,17 +60,20 @@ namespace TestTCPClient_CPP
 		}
 	}
 
+	// attempts to send a message to the server through a socket
+	//		[socket] - the socket the data will be sent through
+	//		[message] - the data to be sent
+	//		[packetSize] - data larger than this will be broken into multiple writes
 	void sendMessage(tcp::socket &socket, 
 		const std::string &message, 
 		const size_t &packetSize)
 	{
-		// attempt to send a message to the server
 		try
 		{
 			asio::error_code errorOut;
 			asio::write(socket, asio::buffer(message, packetSize), errorOut);
 
-			// if write fails print message and close socket
+			// if write fails print error and close the socket
 			if (errorOut)
 			{
 				std::cout << "CONNECTION TO CLIENT LOST: " << socket.remote_endpoint().address().to_string() << std::endl;
@@ -77,16 +87,20 @@ namespace TestTCPClient_CPP
 		}
 	}
 
+	// attempts to read the server's response to a sent message
+	//		[socket] - the socket the data will be received through
+	//		[packetSize] - data larger than this will be broken into multiple reads
 	size_t readMessage(tcp::socket &socket, const size_t &packetSize)
 	{
+		// return value
+		// reading from the socket will set this to the length of the message received
 		size_t len = 0;
-		// attempt to read a message from the client
 		try
 		{
 			asio::error_code errorIn;
 			len = socket.read_some(asio::buffer(buf, packetSize), errorIn);
 
-			// check for failed receive
+			// if read fails print error and close the socket
 			if (errorIn == asio::error::eof) {} // Connection closed cleanly by peer. 
 			else if (errorIn)
 			{
@@ -103,6 +117,8 @@ namespace TestTCPClient_CPP
 		return len;
 	}
 
+	// sets up a socket, connects to the server then loops write/read
+	//		[baseAddress] - the ip address to connect a socket to
 	void runClient(const std::string& baseAddress)
 	{
 		asio::io_context io_context;
@@ -138,6 +154,8 @@ namespace TestTCPClient_CPP
 	} // END runClient()
 } // END namespace TestTCPClient_CPP
 
+// program entry point
+//		[argv[1]] - command line argument to connect a socket to a chosen ip address
 int main(int argc, char* argv[])
 {
 	// default address to local host
