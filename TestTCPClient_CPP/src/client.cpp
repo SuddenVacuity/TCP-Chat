@@ -5,6 +5,10 @@
 // Copyright (c) 2018 Gerald Coggins
 //
 
+#ifndef ASIO_STANDALONE
+#define ASIO_STANDALONE
+#endif
+
 #include <iostream>
 #include <string>
 #include <asio.hpp>
@@ -12,7 +16,11 @@
 namespace TestTCPClient_CPP
 {
 	using asio::ip::tcp;
-	const std::string endMessageToken = "\n";
+	// the size of the packets to be sent
+	// any data larger than this will be split into
+	// multiple packages and sent sequencially
+	const size_t packetSize = 128;
+	char buf[packetSize] = {};
 
 	void printSocketException(asio::system_error& e)
 	{
@@ -37,12 +45,13 @@ namespace TestTCPClient_CPP
 		{
 			asio::connect(socket, endpoints, errorConnect);
 
-			asio::streambuf buf;
-			size_t len = asio::read_until(socket, buf, endMessageToken, errorConnect);
+			size_t len = socket.read_some(asio::buffer(buf, packetSize), errorConnect);
 
 			// print received message
 			std::cout << "Server says: ";
-			std::cout.write((char*)buf.data().data(), len) << std::endl;
+			std::cout.write(buf, len) << std::endl;
+
+			memset(buf, 0, len);
 		}
 		catch (asio::system_error& e)
 		{
@@ -62,7 +71,7 @@ namespace TestTCPClient_CPP
 			asio::error_code errorOut;
 			try
 			{
-				asio::write(socket, asio::buffer(input + endMessageToken), errorOut);
+				asio::write(socket, asio::buffer(input), errorOut);
 			}
 			catch (asio::system_error& e)
 			{
@@ -75,14 +84,11 @@ namespace TestTCPClient_CPP
 			if (input == "qqqs")
 				break;
 
-			// create buffer to hold sent data
-			asio::streambuf buf;
-
 			// attempt to read a message from the client
 			asio::error_code errorIn;
 			try
 			{
-				size_t len = asio::read_until(socket, buf, endMessageToken, errorIn);
+				size_t len = socket.read_some(asio::buffer(buf, packetSize), errorIn);
 
 				// handle failed receive
 				if (errorIn == asio::error::eof)
@@ -92,8 +98,10 @@ namespace TestTCPClient_CPP
 
 				// print received message
 				std::cout << "Server says: ";
-				std::cout.write((char*)buf.data().data(), len);
+				std::cout.write(buf, len);
 				std::cout << std::endl;
+
+				memset(buf, 0, len);
 
 			}
 			catch (asio::system_error& e)

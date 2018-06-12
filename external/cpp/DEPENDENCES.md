@@ -5,6 +5,3 @@ Download each from their website and include them in the project include path.
 ### asio v1.12.1
 	https://think-async.com/
 	used for tcp socket utility
-### boost v1.67.0
-	https://www.boost.org/
-	required to use asio

@@ -71,14 +71,14 @@
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <LinkIncremental>true</LinkIncremental>
-    <IncludePath>$(VC_IncludePath);$(WindowsSDK_IncludePath);$(SolutionDir)/external/cpp/asio-1.12.1/include;$(SolutionDir)/external/cpp/boost_1_67_0</IncludePath>
+    <IncludePath>$(VC_IncludePath);$(WindowsSDK_IncludePath);$(SolutionDir)/external/cpp/asio-1.12.1/include</IncludePath>
     <OutDir>$(ProjectDir)\bin</OutDir>
     <IntDir>$(ProjectDir)\obj</IntDir>
     <LibraryPath>$(ProjectDir)\libs;C:\Program Files (x86)\Microsoft SDKs\Windows\v7.1A\Lib;C:\Program Files (x86)\Microsoft Visual Studio 14.0\VC\lib;C:\Program Files (x86)\Windows Kits\10\Lib\10.0.10150.0\ucrt\x86</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <LinkIncremental>true</LinkIncremental>
-    <IncludePath>$(VC_IncludePath);$(WindowsSDK_IncludePath);$(SolutionDir)/external/cpp/asio-1.12.1/include;$(SolutionDir)/external/cpp/boost_1_67_0</IncludePath>
+    <IncludePath>$(VC_IncludePath);$(WindowsSDK_IncludePath);$(SolutionDir)/external/cpp/asio-1.12.1/include</IncludePath>
     <OutDir>$(ProjectDir)\bin</OutDir>
     <IntDir>$(ProjectDir)\obj</IntDir>
     <LibraryPath>$(ProjectDir)\libs;C:\Program Files (x86)\Microsoft SDKs\Windows\v7.1A\Lib;C:\Program Files (x86)\Microsoft Visual Studio 14.0\VC\lib;C:\Program Files (x86)\Windows Kits\10\Lib\10.0.10150.0\ucrt\x86</LibraryPath>

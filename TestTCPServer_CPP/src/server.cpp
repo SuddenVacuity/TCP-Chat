@@ -5,6 +5,10 @@
 // Copyright (c) 2018 Gerald Coggins
 //
 
+#ifndef ASIO_STANDALONE
+#define ASIO_STANDALONE
+#endif
+
 #include <iostream>
 #include <string>
 #include <asio.hpp>
@@ -12,7 +16,11 @@
 namespace TestTCPServer_CPP
 {
 	using asio::ip::tcp;
-	const std::string endMessageToken = "\n";
+	// the size of the packets to be sent
+	// any data larger than this will be split into
+	// multiple packages and sent sequencially
+	const size_t packetSize = 128;
+	char buf[packetSize] = {};
 
 	void printSocketException(asio::system_error& e)
 	{
@@ -24,14 +32,11 @@ namespace TestTCPServer_CPP
 	// returns true as long as the the server should continue running
 	bool handleClientMessage(const std::string& message, tcp::socket& socket)
 	{
-		std::string msg = message;
-		msg.erase((size_t)(msg.length() - endMessageToken.length()));
-
-		if (msg == "qqqs")
+		if (message == "qqqs")
 		{
 			return false;
 		}
-		if (msg == "qqq")
+		if (message == "qqq")
 		{
 			std::cout << "Client has disconnected: " << socket.remote_endpoint().address().to_string() << std::endl;
 			socket.shutdown(asio::socket_base::shutdown_type::shutdown_both);
@@ -39,7 +44,7 @@ namespace TestTCPServer_CPP
 		}
 		else
 		{
-			std::cout << "Client says: " << msg << std::endl;
+			std::cout << "Client says: " << message << std::endl;
 			// create message to send
 			std::string messageOut = "message recieved";
 
@@ -48,7 +53,14 @@ namespace TestTCPServer_CPP
 			// attempt to send a message to the client
 			try
 			{
-				asio::write(socket, asio::buffer(messageOut + endMessageToken), errorOut);
+				asio::write(socket, asio::buffer(messageOut), errorOut);
+
+				// if write fails print message and close socket
+				if (errorOut)
+				{
+					std::cout << "CONNECTION TO CLIENT LOST: " << socket.remote_endpoint().address().to_string() << std::endl;
+					socket.close();
+				}
 			}
 			catch (asio::system_error& e)
 			{
@@ -72,7 +84,14 @@ namespace TestTCPServer_CPP
 		asio::error_code errorOut;
 		try
 		{
-			asio::write(socket, asio::buffer(messageOut + endMessageToken), errorOut);
+			asio::write(socket, asio::buffer(messageOut), errorOut);
+
+			// if write fails print message and close socket
+			if (errorOut)
+			{
+				std::cout << "CONNECTION TO CLIENT LOST: " << socket.remote_endpoint().address().to_string() << std::endl;
+				socket.close();
+			}
 		}
 		catch (asio::system_error& e)
 		{
@@ -85,9 +104,10 @@ namespace TestTCPServer_CPP
 		asio::io_service io_service;
 		tcp::acceptor acceptor(io_service, tcp::endpoint(tcp::v6(), 5000));
 
-		tcp::socket socket(io_service); 
+		tcp::socket socket(io_service);
 		asio::error_code ec;
 		socket.set_option(asio::socket_base::reuse_address(true), ec);
+
 		acceptNewClient(acceptor, socket);
 
 		while (true)
@@ -98,24 +118,29 @@ namespace TestTCPServer_CPP
 			}
 
 			// read sent message
-			asio::streambuf buf;
 			asio::error_code errorIn;
 
 			// attempt to read a message from the client
 			try
 			{
-				size_t len = asio::read_until(socket, buf, endMessageToken, errorIn);
+				// read from client
+				size_t len = socket.read_some(asio::buffer(buf, packetSize), errorIn);
 
-				// if message was successfully received
-				// handle the message internally
-				if (!errorIn)
+				// if read fails print message and close socket
+				if(errorIn)
 				{
-					char* ptr = (char*)buf.data().data();
-					std::string received(ptr, ptr + len);
-
-					if (!handleClientMessage(received, socket))
-						break;
+					std::cout << "CONNECTION TO CLIENT LOST: " << socket.remote_endpoint().address().to_string() << std::endl;
+					socket.close();
+					continue;
 				}
+				
+				// handle the sent message interanlly
+				// HACK: returns true as long as the server should keep running
+				if (!handleClientMessage(std::string(buf, len), socket))
+					break;
+
+				// clear the data from the buffer between uses
+				memset(buf, 0, packetSize);
 			}
 			catch (asio::system_error& e)
 			{
