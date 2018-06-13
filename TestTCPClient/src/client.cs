@@ -30,10 +30,10 @@ using System.Net.Sockets;
 
 namespace TestTCPClient
 {
-    static public class HttpConfig
+    public static class HttpConfig
     {
-        static public string baseAddress = "127.0.0.1";
-        static public int port = 5000;
+        public static string baseAddress = "127.0.0.1";
+        public static int port = 5000;
     }
     
     class Client
@@ -45,7 +45,7 @@ namespace TestTCPClient
             "\n   qqq - Close the client" + 
             "\n   qqqs - Closes the server and the client";
 
-        static public void run()
+        public static void run()
         {
             // FIRST initialize a socket to use to connect to the server
             Socket server = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
@@ -61,70 +61,99 @@ namespace TestTCPClient
                 Console.ReadLine();
                 return;
             }
-            
+
             // send/receive/modify as needed
             // constantly take input to be sent to the server
-            while (true)
+            bool runClient = true;
+            while (runClient)
             {
                 // take in user input to be sent and handled internally
                 string input = Console.ReadLine();
-                
-                // THIRD handle any input that should not be sent to the server
-                // before data is sent then skip the remainder of the loop
-                if (input == "help")
-                {
-                    // don't send client help command
-                    Console.WriteLine(helpText);
+
+                // THIRD handle input and decide if data should be sent to the server
+                // returns and empty string if there's nothing to send
+                string message = createServerMessage(input, ref runClient);
+
+                if (message == "")
                     continue;
-                }
 
                 // FOURTH attempt to send data to the server
                 // the server must have an active socket open connection to the client
                 // data sent must be byte[] type
-                try
-                {
-                    server.Send(Encoding.ASCII.GetBytes(input));
-                }
-                catch (SocketException e)
-                {
-                    handleSocketException(e);
-                    break;
-                }
-
-                // FIFTH handle input the was sent to the server internally
-                if (input == "exit")
-                    break;
-                if (input == "closeserverandexit")
-                    break;
-
-                // SIXTH wait to receive data as a response from the server
+                sendMessage(server, message);
+                
+                // FIFTH wait to receive data as a response from the server
                 // wait for a response from the server
                 // when using receive the server must actually send a response or it will hang waiting
-                // data received will be byte[] type
-                byte[] data = new byte[1024];
-                int receivedDataLength = 0;
-                try
-                {
-                    receivedDataLength = server.Receive(data);
-                }
-                catch (SocketException e)
-                {
-                    handleSocketException(e);
-                    break;
-                }
+                string stringData = readMessage(server);
 
-                // SEVENTH handle the server response internally
-                string stringData = Encoding.ASCII.GetString(data, 0, receivedDataLength);
-                Console.WriteLine(stringData);
+                // SIXTH handle the server response internally
+                handleResponseInternally(stringData);
             }
 
             // LAST close the socket connection
             server.Shutdown(SocketShutdown.Both);
             server.Close();
         }
+
+        private static string createServerMessage(string input, ref bool runClient)
+        {
+            // before data is sent then skip the remainder of the loop
+            if (input == "help")
+            {
+                // don't send client help command
+                Console.WriteLine(helpText);
+                return "";
+            }
+            // quit condition
+            if (input == "qqq")
+                runClient = false;
+            if (input == "qqqs")
+                runClient = false;
+
+            return input;
+        }
+        
+        private static void handleResponseInternally(string message)
+        {
+            Console.WriteLine(message);
+        }
+        
+
+       private static string readMessage(Socket server)
+        {
+            string message = "";
+
+            // data received will be byte[] type
+            byte[] data = new byte[1024];
+            int receivedDataLength = 0;
+            try
+            {
+                receivedDataLength = server.Receive(data);
+                message = Encoding.ASCII.GetString(data, 0, receivedDataLength);
+            }
+            catch (SocketException e)
+            {
+                handleSocketException(e);
+            }
+
+            return message;
+        }
+
+        private static void sendMessage(Socket server, string message)
+        {
+            try
+            {
+                server.Send(Encoding.ASCII.GetBytes(message));
+            }
+            catch (SocketException e)
+            {
+                handleSocketException(e);
+            }
+        }
         
         // attempts to make a socket connection to the server
-        static private bool connect(ref Socket server)
+        private static bool connect(ref Socket server)
         {
             // create endpoint to connect to
             IPEndPoint ip = new IPEndPoint(IPAddress.Parse(HttpConfig.baseAddress), HttpConfig.port);

@@ -30,14 +30,14 @@ using System.Net.Sockets;
 
 namespace TestTCPServer
 {
-    static public class HttpConfig
+    public static class HttpConfig
     {
-        static public int port = 5000;
+        public static int port = 5000;
     }
 
     class Server
     {
-        static public void run()
+        public static void run()
         {
             // set the ip address range and port to listen on and define the type of socket to be used
             IPEndPoint ip = new IPEndPoint(IPAddress.Any, HttpConfig.port);
@@ -51,8 +51,8 @@ namespace TestTCPServer
             
             // while({ while() {}} only supports a single client
             // TODO: implement some form of threading to support multiple clients
-            bool run = true;
-            while (run)
+            bool runServer = true;
+            while (runServer)
             {
                 // create a new socket to recieve data from a newly connected client
                 Socket client = socket.Accept();
@@ -72,59 +72,19 @@ namespace TestTCPServer
                     if (client.Connected == false)
                         break;
                     
-                    // create a buffer to hoad data
-                    // TODO: make buffer safe for varying data lengths
-                    byte[] dataReceive = new byte[1024];
-                    int len = 0;
-
                     // attempt to read data sent by the connected client
-                    try
-                    {
-                        // data will be copied directly into the buffer
-                        len = client.Receive(dataReceive, SocketFlags.None);
-                    }
-                    catch (SocketException e)
-                    {
-                        handleSocketException(e, client, clientep);
-                        break;
-                    }
+                    string messageReceived = readMessage(client, clientep);
+
+                    if (messageReceived == "")
+                        continue;
                     
                     // create a response to send to the client
-                    string messageOut = "send successful";
-                    byte[] response = new byte[1024];
-                    response = Encoding.ASCII.GetBytes(messageOut);
+                    string messageOut = createMessageResponse(messageReceived);
 
                     // attempt to send the response
-                    try
-                    {
-                        client.Send(response);
-                    }
-                    catch (SocketException e)
-                    {
-                        handleSocketException(e, client, clientep);
-                        break;
-                    }
+                    sendMessage(client, clientep, messageOut);
 
-                    // convert the received data in a string
-                    // make sure to use the length returned by client.receive(...)
-                    string messageReceived = Encoding.ASCII.GetString(dataReceive, 0, len);
-
-                    // hadle received data internally
-                    if (messageReceived == "qqq")
-                    {
-                        client.Close();
-                        Console.WriteLine("{0} >>> Disconnected", clientep.Address);
-                        break;
-                    }
-                    if (messageReceived == "qqqs")
-                    {
-                        client.Close();
-                        Console.WriteLine("{0} >>> Disconnected", clientep.Address);
-                        run = false;
-                        break;
-                    }
-
-                    Console.WriteLine("{0} >>> Says: " + messageReceived, clientep.Address);
+                    runServer = handleMessageInternally(messageReceived, client, clientep);
                 }
             } // END while(run)
 
@@ -132,13 +92,82 @@ namespace TestTCPServer
             socket.Close();
         } // END run()
 
+        private static bool handleMessageInternally(string message, Socket client, IPEndPoint clientep)
+        {
+            // handle received data internally
+            if (message == "qqq")
+            {
+                client.Close();
+                Console.WriteLine("{0} >>> Disconnected", clientep.Address);
+            }
+            else if (message == "qqqs")
+            {
+                client.Close();
+                Console.WriteLine("{0} >>> Disconnected", clientep.Address);
+                return false;
+            }
+            else
+            {
+                Console.WriteLine("{0} >>> Says: " + message, clientep.Address);
+            }
+
+            return true;
+        }
+
+        private static string createMessageResponse(string message)
+        {
+            return "send successful";
+        }
+
+        private static void sendMessage(Socket client, IPEndPoint clientep, string message)
+        {
+            if (client.Connected == false)
+                return;
+
+            try
+            {
+                client.Send(Encoding.ASCII.GetBytes(message));
+            }
+            catch (SocketException e)
+            {
+                handleSocketException(e, client, clientep);
+            }
+        }
+
+        private static string readMessage(Socket client, IPEndPoint clientep)
+        {
+            string message = "";
+
+            if (client.Connected == false)
+                return message;
+
+            byte[] dataReceive = new byte[1024];
+            try
+            {
+                // data will be copied directly into the buffer
+                int len = client.Receive(dataReceive, SocketFlags.None);
+                // convert the received data in a string
+                // make sure to use the length returned by client.receive(...)
+                message = Encoding.ASCII.GetString(dataReceive, 0, len);
+            }
+            catch (SocketException e)
+            {
+                handleSocketException(e, client, clientep);
+            }
+
+            return message;
+        }
+
+
         private static void handleSocketException(SocketException e, Socket client, IPEndPoint clientep)
         {
             Console.WriteLine("{0} >>> Connection was lost", clientep.Address);
             Console.WriteLine(e.Message);
             Console.WriteLine(e.InnerException);
 
-            client.Disconnect(true);
+            if (client.Connected == true)
+                client.Disconnect(true);
+
             return;
         }
     }
