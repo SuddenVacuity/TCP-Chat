@@ -37,6 +37,9 @@ namespace TestTCPServer
 
     class Server
     {
+        /// <summary>
+        /// The main program loop
+        /// </summary>
         public static void run()
         {
             // set the ip address range and port to listen on and define the type of socket to be used
@@ -92,15 +95,22 @@ namespace TestTCPServer
             socket.Close();
         } // END run()
 
+        /// <summary>
+        /// Takes string data sent by a socket and uses it to determine changes to the server's internal state.
+        /// </summary>
+        /// <param name="message">Data that was sent by the client.</param>
+        /// <param name="client">The socket that setn the data.</param>
+        /// <param name="clientep">The address of the socket that sent the data.</param>
+        /// <returns>HACK: Returns true as long as the server should continue running.</returns>
         private static bool handleMessageInternally(string message, Socket client, IPEndPoint clientep)
         {
             // handle received data internally
-            if (message == "qqq")
+            if (message == "qqq") // client was closed
             {
                 client.Close();
                 Console.WriteLine("{0} >>> Disconnected", clientep.Address);
             }
-            else if (message == "qqqs")
+            else if (message == "qqqs") // client was closed and server will close too
             {
                 client.Close();
                 Console.WriteLine("{0} >>> Disconnected", clientep.Address);
@@ -114,13 +124,28 @@ namespace TestTCPServer
             return true;
         }
 
+        /// <summary>
+        /// Takes a string data sent by a socket and determines what to respond with.
+        /// </summary>
+        /// <param name="message">String sent by a socket.</param>
+        /// <returns>Returns a string to send to the socket</returns>
         private static string createMessageResponse(string message)
         {
+            // placeholder
             return "send successful";
         }
 
+        /// <summary>
+        /// Converts an input string to bytes then sends the bytes to the socket.
+        /// </summary>
+        /// <param name="client">The socket to send data to.</param>
+        /// <param name="clientep">The address the socket is connected to.</param>
+        /// <param name="message">The data to send.</param>
+        /// <exception cref="SocketException">Thrown when connecting to a client fails</exception>
         private static void sendMessage(Socket client, IPEndPoint clientep, string message)
         {
+            // a socket exception can force a client to disconnect
+            // so check that the client is connected first
             if (client.Connected == false)
                 return;
 
@@ -134,10 +159,19 @@ namespace TestTCPServer
             }
         }
 
+        /// <summary>
+        /// Reads incoming bytes from a socket then converts it to a string.
+        /// </summary>
+        /// <param name="client">The socket to read from.</param>
+        /// <param name="clientep">The address the socket is connected to.</param>
+        /// <returns>Returns a string representing the data that was sent.</returns>
+        /// <exception cref="SocketException">Thrown when connecting to a client fails</exception>
         private static string readMessage(Socket client, IPEndPoint clientep)
         {
             string message = "";
-
+            
+            // a socket exception can force a client to disconnect
+            // so check that the client is connected first
             if (client.Connected == false)
                 return message;
 
@@ -158,13 +192,21 @@ namespace TestTCPServer
             return message;
         }
 
-
+        /// <summary>
+        /// Prints the message from caught exceptions then disconnected the socket that threw the exception.
+        /// </summary>
+        /// <param name="e">The exception that was thrown.</param>
+        /// <param name="client">The socket that threw the exception.</param>
+        /// <param name="clientep">The address the socket is connected to.</param>
         private static void handleSocketException(SocketException e, Socket client, IPEndPoint clientep)
         {
+            // handle the event of a client disconnecting
             Console.WriteLine("{0} >>> Connection was lost", clientep.Address);
             Console.WriteLine(e.Message);
             Console.WriteLine(e.InnerException);
 
+            // this can run more than once per loop so
+            // check if client is connected before attempting to disconnect.
             if (client.Connected == true)
                 client.Disconnect(true);
 

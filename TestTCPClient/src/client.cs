@@ -45,6 +45,9 @@ namespace TestTCPClient
             "\n   qqq - Close the client" + 
             "\n   qqqs - Closes the server and the client";
 
+        /// <summary>
+        /// The main program loop
+        /// </summary>
         public static void run()
         {
             // FIRST initialize a socket to use to connect to the server
@@ -96,6 +99,12 @@ namespace TestTCPClient
             server.Close();
         }
 
+        /// <summary>
+        /// Takes in user input to create a message to send to the server.
+        /// </summary>
+        /// <param name="input">The input to be interpreted.</param>
+        /// <param name="runClient">HACK: this remains true as long as the client should keep running.</param>
+        /// <returns>Returns string to send to the server.</returns>
         private static string createServerMessage(string input, ref bool runClient)
         {
             // before data is sent then skip the remainder of the loop
@@ -105,22 +114,30 @@ namespace TestTCPClient
                 Console.WriteLine(helpText);
                 return "";
             }
-            // quit condition
-            if (input == "qqq")
+            if (input == "qqq") // close client and inform server client was closed
                 runClient = false;
-            if (input == "qqqs")
+            if (input == "qqqs") // close client and send message to close server
                 runClient = false;
 
             return input;
         }
-        
+
+        /// <summary>
+        /// Takes string data sent by the server and uses it to determine changes to the client's internal state.
+        /// </summary>
+        /// <param name="message">Data that was sent by the server.</param>
         private static void handleResponseInternally(string message)
         {
             Console.WriteLine(message);
         }
-        
 
-       private static string readMessage(Socket server)
+        /// <summary>
+        /// Reads incoming bytes from the server then converts it to a string.
+        /// </summary>
+        /// <param name="client">The socket connection to the server.</param>
+        /// <returns>Returns a string representing the data that was sent.</returns>
+        /// <exception cref="SocketException">Thrown when connecting to the server fails</exception>
+        private static string readMessage(Socket server)
         {
             string message = "";
 
@@ -139,7 +156,13 @@ namespace TestTCPClient
 
             return message;
         }
-
+        
+        /// <summary>
+        /// Converts an input string to bytes then sends the bytes to the server.
+        /// </summary>
+        /// <param name="client">The socket connection to the server.</param>
+        /// <param name="message">The data to send.</param>
+        /// <exception cref="SocketException">Thrown when connecting to the server fails</exception>
         private static void sendMessage(Socket server, string message)
         {
             try
@@ -152,7 +175,11 @@ namespace TestTCPClient
             }
         }
         
-        // attempts to make a socket connection to the server
+        /// <summary>
+        /// Attempts to make a socket connection to the server
+        /// </summary>
+        /// <param name="server">The socket to connect</param>
+        /// <returns>Returns true if the connection was successful</returns>
         private static bool connect(ref Socket server)
         {
             // create endpoint to connect to
@@ -183,6 +210,10 @@ namespace TestTCPClient
             return true;
         }
 
+        /// <summary>
+        /// Prints the message from caught exceptions.
+        /// </summary>
+        /// <param name="e">The exception that was thrown.</param>
         private static void handleSocketException(SocketException e)
         {
             Console.WriteLine(e.InnerException);
